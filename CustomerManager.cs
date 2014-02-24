@@ -4,50 +4,56 @@ using System.Collections;
 
 public class CustomerManager : MonoBehaviour {
     private GameState gameState;
-    public Vector2 endpoint;
+
+    public Vector2 positionMid;
+    public Vector2 positionEnd;
+    public Vector2 currentTargetPosition;
+
     public Vector2 cursorTarget;
-    private Camera camera;
     public CustomerStates currentState;
-    private float moveSpeed = 5f;
-    public Sprite[] sprites;
+    private float moveSpeed = 3f;
 
     public enum CustomerStates
     {
         Enter = 0,
-        Idle = 1,
-        Exit = 2,
-        Hit = 3,
-        Die = 4
+        MoveToMid = 1,
+        MoveToEnd = 2,
+        Exit = 3,
+        Hit = 4,
+        Die = 5
     }
 
 	// Use this for initialization
 	void Start ()
 	{
         gameState = GameObject.FindGameObjectWithTag("GameState").GetComponent<GameState>();
-	    camera = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Camera>();
-        
+
         // Randomize and set sprite.
-	    int index = Random.Range(0, sprites.Length);
-	    GetComponent<SpriteRenderer>().sprite = sprites[index];
+	    //int index = Random.Range(0, sprites.Length);
+	    //GetComponent<SpriteRenderer>().sprite = sprites[index];
 	}
 	
 	// Update is called once per frame
 	void Update () {
-        if (transform.position.x == endpoint.x && transform.position.y == endpoint.y)
-	    {
-	        SetState(CustomerStates.Exit);
-	    }
 
         switch (currentState) {
-            case CustomerStates.Enter:
-                transform.position = Vector2.MoveTowards(transform.position, endpoint, moveSpeed * Time.deltaTime);
+            case CustomerStates.MoveToMid:
+                // Check if reached midpoint.
+                if (transform.position.x == positionMid.x && transform.position.y == positionMid.y) {
+                    SetState(CustomerStates.MoveToEnd);
+                }
+                transform.position = Vector2.MoveTowards(transform.position, positionMid, moveSpeed * Time.deltaTime);
                 break;
 
-            case CustomerStates.Idle:
+            case CustomerStates.MoveToEnd:
+                // Check if reached endpoint.
+                if (transform.position.x == positionEnd.x && transform.position.y == positionEnd.y) {
+                    SetState(CustomerStates.Exit);
+                }
+                transform.position = Vector2.MoveTowards(transform.position, positionEnd, moveSpeed * Time.deltaTime);
                 break;
 
             case CustomerStates.Exit:
-                // Off screen.
                 Destroy(gameObject);
                 gameState.CustomerLeft();
                 break;
@@ -58,6 +64,7 @@ public class CustomerManager : MonoBehaviour {
                 break;
 
             case CustomerStates.Die:
+                Debug.Log("-----------------die");
                 Destroy(gameObject);
                 gameState.KilledCustomer(gameObject.tag);
                 break;
@@ -69,9 +76,14 @@ public class CustomerManager : MonoBehaviour {
         this.currentState = state;
     }
 
-    public void SetEndpoint(Vector2 endpoint)
+    public void SetPositionMid(Vector2 positionMid)
     {
-        this.endpoint = endpoint;
+        this.positionMid = positionMid;
+    }
+
+    public void SetPositionEnd(Vector2 positionEnd)
+    {
+        this.positionEnd = positionEnd;
     }
 
     void OnMouseDown()

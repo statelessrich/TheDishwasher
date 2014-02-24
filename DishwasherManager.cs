@@ -14,6 +14,8 @@ public class DishwasherManager : MonoBehaviour
     private float speed = 5;
     private SpriteRenderer spriteRenderer;
     private GameObject bus;
+    private float dishThrowCooldownMax = 1f;
+    public float dishThrowCooldown = 0f;
 
     public enum DishwasherState
     {
@@ -22,6 +24,16 @@ public class DishwasherManager : MonoBehaviour
         MoveToDiningExit,
         MoveToBusPosition,
         MoveToDiningPosition
+    }
+
+    public float GetDishThrowCooldown()
+    {
+        return dishThrowCooldown;
+    }
+
+    public void StartDishThrowCooldown()
+    {
+        dishThrowCooldown = dishThrowCooldownMax;
     }
 
 	// Use this for initialization
@@ -47,6 +59,16 @@ public class DishwasherManager : MonoBehaviour
 	// Update is called once per frame
     private void Update()
     {
+        if (dishThrowCooldown > 0)
+        {
+            dishThrowCooldown -= Time.deltaTime;
+
+            if (dishThrowCooldown < 0)
+            {
+                dishThrowCooldown = 0;
+            }
+        }
+
         switch (currentState)
         {
             case DishwasherState.Idle:
@@ -85,6 +107,7 @@ public class DishwasherManager : MonoBehaviour
                     gameState.SetState(GameState.State.Dining);
                     
                     SetState(DishwasherState.Idle);
+                    GetComponent<Animator>().Play("idle");
                 }
 
                 // Move Dishwasher and bus toward dining room.
@@ -126,6 +149,14 @@ public class DishwasherManager : MonoBehaviour
         else if (currentState == DishwasherState.MoveToBusPosition)
         {
             bus.transform.position = busPosition.transform.position;
+        } 
+        else if (currentState == DishwasherState.MoveToDiningExit || currentState == DishwasherState.MoveToBusPosition)
+        {
+            GetComponent<Animator>().Play("walk");
+        } 
+        else if (currentState == DishwasherState.Idle)
+        {
+            GetComponent<Animator>().Play("idle");
         }
     }
 

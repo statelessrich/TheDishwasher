@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-public class GameState : MonoBehaviour
-{
+public class GameState : MonoBehaviour {
+    #region variables
     private DishwasherManager dishwasherManager;
 
     private PlateManager plateManager;
@@ -28,7 +28,17 @@ public class GameState : MonoBehaviour
     private GameObject customer4Instance;
     private CustomerManager customer4Manager;
 
-    private Vector2 customerSpawnpoint;
+    public GameObject customer5;
+    private GameObject customer5Instance;
+    private CustomerManager customer5Manager;
+
+    public GameObject customer6;
+    private GameObject customer6Instance;
+    private CustomerManager customer6Manager;
+
+    private Vector2 customerPositionSpawn;
+    private Vector2 customerPositionMid;
+    private Vector2 customerPositionEnd;
     
     public GameObject winText;
     public GameObject debugText;
@@ -58,9 +68,12 @@ public class GameState : MonoBehaviour
     public AudioSource BGM;
     public AudioSource plateHitSound;
 
-    public bool debug = true;
+    public const bool debug = false;
     
     public State currentState;
+    private float dishSpawnDelay = 0.5f;
+
+    private bool throwing = false;
 
     public enum State
     {
@@ -70,10 +83,14 @@ public class GameState : MonoBehaviour
         Win,
         GameOver
     }
-    
-	// Use this for initialization
+
+    #endregion variables
+
+    // Use this for initialization
 	void Start ()
 	{
+	    //debug = false;
+
 	    //PlateManager = GameObject.FindGameObjectWithTag("Plate").GetComponent<PlateManager>();
         //plateSpawnpoint = GameObject.FindGameObjectWithTag("PlateSpawnpoint");
 	    //customer1Spawnpoint = GameObject.FindGameObjectWithTag("Customer1Spawnpoint");
@@ -85,26 +102,30 @@ public class GameState : MonoBehaviour
         //customer2 = Resources.Load("Prefabs/Customer.prefab", typeof(GameObject)) as GameObject;
 	    dishwasherManager = GameObject.FindGameObjectWithTag("Dishwasher").GetComponent<DishwasherManager>();
 
+        // Customers
+        customerPositionSpawn = GameObject.Find("CustomerPositionSpawn").GetComponent<Transform>().position;
+        customerPositionMid = GameObject.Find("CustomerPositionMid").GetComponent<Transform>().position;
+        customerPositionEnd = GameObject.Find("CustomerPositionEnd").GetComponent<Transform>().position;
+
         diningCamera = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Camera>();
         dishCamera = GameObject.FindGameObjectWithTag("DishRoomCamera").GetComponent<Camera>();
         dishCamera.enabled = false;
-
 
 	    SetState(State.Dining);
 
 	    //customerWaves = new int[totalWaves] {4, 4, 4};
         
+		//SpawnCustomer1();
         // Initial spawns.
         /*
-        SpawnCustomer1();
+        
         SpawnCustomer2();
         SpawnCustomer3();
         SpawnCustomer4();
          * */
-        SpawnRandomCustomer();
-        SpawnRandomCustomer();
-        SpawnRandomCustomer();
-        SpawnRandomCustomer();
+        
+        //SpawnRandomCustomer();
+        
         customersInWave = customerWaves[currentWave];
 
 	}
@@ -114,7 +135,6 @@ public class GameState : MonoBehaviour
         if (currentState == State.Dining) 
         {
             if (!diningCamera.enabled) {
-                Debug.Log("dining");
                 dishCamera.enabled = false;
                 diningCamera.enabled = true;
             }
@@ -123,7 +143,6 @@ public class GameState : MonoBehaviour
         } 
         else if (currentState == State.Dish) {
             if (!dishCamera.enabled) {
-                Debug.Log("dish");
                 diningCamera.enabled = false;
                 dishCamera.enabled = true;
 
@@ -162,9 +181,9 @@ public class GameState : MonoBehaviour
         Debug.Log("kill goal: " + (double)customersInWave * pctCustomersKilled);
         // Change plate pile level.
         if (currentWaveKillCount < ((double)customersInWave * pctCustomersKilled)) {
-            IncreasePlatePileLevel();
+            
         } else {
-            DecreasePlatePileLevel();
+            
         }
 
         //yield return new WaitForSeconds(duration);
@@ -181,7 +200,7 @@ public class GameState : MonoBehaviour
     {
         activeCustomers++;
         customerCount++;
-        int random = Random.Range(1, 4);
+        int random = Random.Range(1, 6);
 
         switch (random)
         {
@@ -196,6 +215,12 @@ public class GameState : MonoBehaviour
                 break;
             case 4:
                 SpawnCustomer4();
+                break;
+            case 5:
+                SpawnCustomer5();
+                break;
+            case 6:
+                SpawnCustomer6();
                 break;
         }
     }
@@ -222,20 +247,53 @@ public class GameState : MonoBehaviour
         SpawnCustomer(customer4, customer4Instance, customer4Manager, "Customer4");
         //currentCustomer++;
     }
-	
-	
+    void SpawnCustomer5() {
+        SpawnCustomer(customer5, customer5Instance, customer5Manager, "Customer5");
+        //currentCustomer++;
+    }
+    void SpawnCustomer6() {
+        SpawnCustomer(customer6, customer6Instance, customer6Manager, "Customer6");
+        //currentCustomer++;
+    }
 
+    public void SpawnCustomer(GameObject customer, GameObject customerInstance, CustomerManager customerManager, string tag) {
+        // Instantiate, add collider, set to active.
+        customerInstance = Instantiate(customer, customerPositionSpawn, gameObject.transform.rotation) as GameObject;
+
+        if (customerInstance != null) {
+            //customerInstance.AddComponent<PolygonCollider2D>();
+            //customerInstance.GetComponent<PolygonCollider2D>().isTrigger = true;
+            customerInstance.SetActive(true);
+            //customerInstance.tag = tag;
+            customerInstance.name = "Customer_" + customerCount;
+
+            customerManager = customerInstance.GetComponent<CustomerManager>();
+            customerManager.enabled = true;
+            customerManager.SetPositionMid(customerPositionMid);
+            customerManager.SetPositionEnd(customerPositionEnd);
+
+            // Add to customer list.
+            customers.Add(customerInstance);
+
+            // Enter state.
+            customerManager.SetState(CustomerManager.CustomerStates.MoveToMid);
+        } else {
+            Debug.Log("Failed to instantiate " + tag);
+        }
+    }
+	
     void GetInput() 
     {
-        if (Input.GetMouseButtonDown(0)) 
+        if (Input.GetMouseButtonDown(0) && !throwing) 
         {
-            Debug.Log("throw");
-            SpawnDish(diningCamera.ScreenToWorldPoint(Input.mousePosition));
+            if (dishwasherManager.GetDishThrowCooldown() <= 0f || debug)
+            {
+                throwing = true;
+                StartCoroutine(SpawnDish(diningCamera.ScreenToWorldPoint(Input.mousePosition), dishSpawnDelay));
+                dishwasherManager.GetComponent<Animator>().Play("throwing");
+            }
         } 
-        else if (Input.GetMouseButtonDown(1)) 
-        {
-
-        }
+        
         if (Input.GetKey(KeyCode.RightArrow)) 
         {
             Debug.Log("hit right");
@@ -243,16 +301,13 @@ public class GameState : MonoBehaviour
         }
     }
 
-    public void FireDish(Vector2 targetPosition)
+    public IEnumerator SpawnDish(Vector2 targetPosition, float duration)
     {
-        //Debug.Log(targetPosition.x);
-        //Debug.Log(targetPosition.y);
-        SpawnDish(targetPosition);
-        
-    }
+        if (!debug)
+        {
+            yield return new WaitForSeconds(duration);
+        }
 
-    public void SpawnDish(Vector2 targetPosition)
-    {
         GameObject plateInstance = Instantiate(plate, plateSpawnpoint.transform.position, plateSpawnpoint.transform.rotation) as GameObject;
         
         plateInstance.SetActive(true);
@@ -267,66 +322,8 @@ public class GameState : MonoBehaviour
         }
         plateManager.SetTarget(targetPosition);
         plateManager.ChangeState(PlateManager.PlateStates.Throw);
-    }
-
-    public void SpawnCustomer(GameObject customer, GameObject customerInstance, CustomerManager customerManager, string tag)
-    {
-        // Create random spawnpoint.
-        float randomX = Random.Range(10, 30);
-        float randomY = Random.Range(-4.0f, 1.0f);
-        customerSpawnpoint = new Vector2(randomX, randomY);
-        
-        // Instantiate, add collider, set to active.
-        customerInstance = Instantiate(customer, customerSpawnpoint, gameObject.transform.rotation) as GameObject;
-        customerInstance.AddComponent<PolygonCollider2D>();
-        customerInstance.GetComponent<PolygonCollider2D>().isTrigger = true;
-        customerInstance.SetActive(true);
-
-        if (customerInstance != null) {
-            customerManager = customerInstance.GetComponent<CustomerManager>();
-            customerInstance.tag = tag;
-            customerInstance.name = "Customer_" + customerCount;
-
-            bool intersects = false;
-            int count = 0;
-            do
-            {
-                count++;
-                // Check if customers overlap.
-                foreach (GameObject cust in customers)
-                {
-                    if (cust.renderer.bounds.Intersects(customerInstance.renderer.bounds))
-                    {
-                        intersects = true;
-                        Debug.Log(customerInstance.name + " intersects " + cust.name);
-                        // Create random spawnpoint.
-                        randomX = Random.Range(10, 20);
-                        randomY = Random.Range(-4.0f, 1.0f);
-                        // Correct x position to fix overlap.
-                        customerSpawnpoint = new Vector2(randomX, randomY);
-                        customerInstance.transform.position = customerSpawnpoint;
-                    }
-                    else
-                    {
-                        intersects = false;
-                    }
-                }
-            } while (intersects && count <= 10);
-
-            if (count >= 10) Debug.Log("looped " + count);
-
-            // Add to customer list.
-            customers.Add(customerInstance);
-
-            // Set endpoint.
-            Vector2 endPoint = new Vector2(-12, randomY);
-            customerManager.SetEndpoint(endPoint);
-
-            // Enter state.
-            customerManager.SetState(CustomerManager.CustomerStates.Enter);
-        } else {
-            Debug.Log("Failed to instantiate " + tag);
-        }
+        dishwasherManager.StartDishThrowCooldown();
+        throwing = false;
     }
 
     public void HitCustomer(GameObject customer)
@@ -422,9 +419,11 @@ public class GameState : MonoBehaviour
         customersInWave = customerWaves[currentWave];
         customerCount = 0;
 
+        SpawnRandomCustomer();
+
         // Spawn first 4 customers in wave.
         for (int i = 0; i < 4; i++) {
-            SpawnRandomCustomer();
+            //SpawnRandomCustomer();
         }
     }
 
@@ -439,33 +438,6 @@ public class GameState : MonoBehaviour
         {
             customers.Clear();
             dishwasherManager.SetState(DishwasherManager.DishwasherState.MoveToDiningExit);
-        }
-    }
-
-    private void IncreasePlatePileLevel() {
-        if (platePileLevel < maxPlatePileLevel) {
-            platePileLevel++;
-
-            // Enable plate pile sprites in pile level.
-            foreach (GameObject sprite in GameObject.FindGameObjectsWithTag("PlatesLevel" + platePileLevel)) {
-                sprite.renderer.enabled = true;
-            }
-
-            if (platePileLevel == maxPlatePileLevel) {
-                // Game over.
-                SetState(State.GameOver);
-            }
-        }
-    }
-
-    private void DecreasePlatePileLevel() {
-        if (platePileLevel > 1) {
-            // Disable plate pile sprites in pile level.
-            foreach (GameObject sprite in GameObject.FindGameObjectsWithTag("PlatesLevel" + platePileLevel)) {
-                sprite.renderer.enabled = false;
-            }
-
-            platePileLevel--;            
         }
     }
     
