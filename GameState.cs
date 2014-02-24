@@ -88,46 +88,23 @@ public class GameState : MonoBehaviour {
 
     // Use this for initialization
 	void Start ()
-	{
-	    //debug = false;
-
-	    //PlateManager = GameObject.FindGameObjectWithTag("Plate").GetComponent<PlateManager>();
-        //plateSpawnpoint = GameObject.FindGameObjectWithTag("PlateSpawnpoint");
-	    //customer1Spawnpoint = GameObject.FindGameObjectWithTag("Customer1Spawnpoint");
-	    //customer2Spawnpoint = GameObject.FindGameObjectWithTag("Customer2Spawnpoint");
-
-        // Load prefabs.
-        //plate = Resources.Load("Prefabs/Plate.prefab", typeof(GameObject)) as GameObject;
-        //customer1 = Resources.Load("Prefabs/Customer.prefab", typeof(GameObject)) as GameObject;
-        //customer2 = Resources.Load("Prefabs/Customer.prefab", typeof(GameObject)) as GameObject;
+	{	   
+		// Dishwasher
 	    dishwasherManager = GameObject.FindGameObjectWithTag("Dishwasher").GetComponent<DishwasherManager>();
 
         // Customers
         customerPositionSpawn = GameObject.Find("CustomerPositionSpawn").GetComponent<Transform>().position;
         customerPositionMid = GameObject.Find("CustomerPositionMid").GetComponent<Transform>().position;
         customerPositionEnd = GameObject.Find("CustomerPositionEnd").GetComponent<Transform>().position;
+		customersInWave = customerWaves[currentWave];
 
+		// Cameras
         diningCamera = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Camera>();
         dishCamera = GameObject.FindGameObjectWithTag("DishRoomCamera").GetComponent<Camera>();
         dishCamera.enabled = false;
 
+		// Initial state
 	    SetState(State.Dining);
-
-	    //customerWaves = new int[totalWaves] {4, 4, 4};
-        
-		//SpawnCustomer1();
-        // Initial spawns.
-        /*
-        
-        SpawnCustomer2();
-        SpawnCustomer3();
-        SpawnCustomer4();
-         * */
-        
-        //SpawnRandomCustomer();
-        
-        customersInWave = customerWaves[currentWave];
-
 	}
 
     // Update is called once per frame.
@@ -176,8 +153,6 @@ public class GameState : MonoBehaviour {
 
     IEnumerator DishScene(float duration)
     {
-        //yield return new WaitForSeconds(duration);
-
         Debug.Log("kill goal: " + (double)customersInWave * pctCustomersKilled);
         // Change plate pile level.
         if (currentWaveKillCount < ((double)customersInWave * pctCustomersKilled)) {
@@ -185,8 +160,6 @@ public class GameState : MonoBehaviour {
         } else {
             
         }
-
-        //yield return new WaitForSeconds(duration);
 
         if (currentState != State.GameOver) {
             dishwasherManager.SetState(DishwasherManager.DishwasherState.MoveToBusPosition);
@@ -261,8 +234,6 @@ public class GameState : MonoBehaviour {
         customerInstance = Instantiate(customer, customerPositionSpawn, gameObject.transform.rotation) as GameObject;
 
         if (customerInstance != null) {
-            //customerInstance.AddComponent<PolygonCollider2D>();
-            //customerInstance.GetComponent<PolygonCollider2D>().isTrigger = true;
             customerInstance.SetActive(true);
             //customerInstance.tag = tag;
             customerInstance.name = "Customer_" + customerCount;
