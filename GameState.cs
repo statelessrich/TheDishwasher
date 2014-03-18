@@ -5,13 +5,28 @@ using UnityEngine;
 using Random = UnityEngine.Random;
 
 public class GameState : MonoBehaviour {
-    #region variables
+    
+    #region Properties
+
+    #region Dishwasher
+    private GameObject dishwasher;
+    private GameObject dishwasherWalking;
     private DishwasherManager dishwasherManager;
+    #endregion Dishwasher
 
-    private PlateManager plateManager;
-    public GameObject plate;
-    public GameObject plateSpawnpoint;
+    #region Misc. Managers
+    private CursorManager cursorManager;
+    private AudioManager audioManager;
+    #endregion
 
+    #region Dish
+    private DishManager dishManager;
+    public GameObject dish;
+    public GameObject dishSpawnpoint;
+    private const float dishSpawnDelay = 0.5f;
+    #endregion Dish
+
+    #region Customers
     public GameObject customer1;
     private GameObject customer1Instance;
     private CustomerManager customer1Manager;
@@ -36,98 +51,155 @@ public class GameState : MonoBehaviour {
     private GameObject customer6Instance;
     private CustomerManager customer6Manager;
 
-    private Vector2 customerPositionSpawn;
+    private Vector2 customerPositionSpawn1;
+    private Vector2 customerPositionSpawn2;
     private Vector2 customerPositionMid;
     private Vector2 customerPositionEnd;
-    
-    public GameObject winText;
-    public GameObject debugText;
+    #endregion Customers
 
+    #region GUI
+    public GameObject debugText;
+    public GameObject mousePositionText;
+    private GameObject exitButton;
+    private GameObject resumeButton;
+    #endregion GUI
+
+    #region Cameras
     private Camera diningCamera;
     private Camera dishCamera;
+    private Camera transitionCamera;
+    private Camera pauseCamera;
+    private Camera lastCamera;
+    private Camera currentCamera;
+    #endregion Cameras
 
+    #region Customer/Wave Info
     public List<GameObject> customers;
-
     public int[] customerWaves;
-    private const int totalWaves = 3;
-    public int currentWave = 0;
-
+    public int currentWave;
     // Customers currently on screen.
-    public int activeCustomers = 0;
+    public int activeCustomers;
     // Total customers created in current wave.
-    public int customerCount = 0;
-    public int customersInWave = 0;
-    public int currentWaveKillCount = 0;
-    public double pctCustomersKilled = 0.5;
-    
-    private int killCount = 0;
+    public int customerCount;
+    public int customersInWave;
+    public int currentWaveKillCount;
+    private const float customerSpawnCooldownMax = 2f;
+    private float customerSpawnCooldown = 0f;
+    #endregion Customer/Wave Info
 
-    public int platePileLevel = 1;
-    public int maxPlatePileLevel = 3;
+    #region Scoring
+    public int missCount;
+    #endregion Scoring
 
-    public AudioSource BGM;
-    public AudioSource plateHitSound;
-
-    public const bool debug = false;
-    
-    public State currentState;
-    private float dishSpawnDelay = 0.5f;
-
-    private bool throwing = false;
-
-    public enum State
-    {
-        Menu,
+    #region State
+    public enum State {
+        Title,
+        Transition,
+        Pause,
+        Tutorial,
+        Credits,
         Dining,
         Dish,
-        Win,
-        GameOver
+        KillScreen
     }
+    public State currentState;
+    private State previousState;
+    #endregion State
 
-    #endregion variables
+    #region Flags
+    public const bool debug = false;
+    private bool throwing;
+    private bool clicked;
+    private bool clickedInHitArea;
+    private bool customerInHitArea;
+    #endregion Flags
+
+    #region Transitions
+    private SpriteRenderer richTransitionSprite;
+    private SpriteRenderer livingTransitionSprite;
+    private SpriteRenderer minimumTransitionSprite;
+    #endregion Transitions
+
+    #endregion Properties
 
     // Use this for initialization
 	void Start ()
 	{	   
+        // Managers
+	    cursorManager = GetComponent<CursorManager>();
+        
+        /* Check if AudioManager from Title scene exists. 
+         * If so, set to Title scene AudioManager and delete the game scene's version.
+         * Else, set the AudioManager to the game scene's audio manager.
+         */
+        if (GameObject.Find("AudioManager")) {
+            Destroy(GameObject.Find("AudioManagerGame"));
+            audioManager = GameObject.Find("AudioManager").GetComponent<AudioManager>();
+        } else {
+            audioManager = GameObject.Find("AudioManagerGame").GetComponent<AudioManager>();
+        }
+
 		// Dishwasher
 	    dishwasherManager = GameObject.FindGameObjectWithTag("Dishwasher").GetComponent<DishwasherManager>();
-
+	    dishwasher = GameObject.Find("Dishwasher");
+        dishwasherWalking = GameObject.Find("DishwasherWalking");
+        
         // Customers
-        customerPositionSpawn = GameObject.Find("CustomerPositionSpawn").GetComponent<Transform>().position;
+        customerPositionSpawn1 = GameObject.Find("CustomerPositionSpawn1").GetComponent<Transform>().position;
+        customerPositionSpawn2 = GameObject.Find("CustomerPositionSpawn2").GetComponent<Transform>().position;
         customerPositionMid = GameObject.Find("CustomerPositionMid").GetComponent<Transform>().position;
         customerPositionEnd = GameObject.Find("CustomerPositionEnd").GetComponent<Transform>().position;
-		customersInWave = customerWaves[currentWave];
 
-		// Cameras
-        diningCamera = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Camera>();
-        dishCamera = GameObject.FindGameObjectWithTag("DishRoomCamera").GetComponent<Camera>();
-        dishCamera.enabled = false;
+	    // Cameras
+        diningCamera = GameObject.Find("DiningCamera").GetComponent<Camera>();
+        dishCamera = GameObject.Find("DishCamera").GetComponent<Camera>();
+        transitionCamera = GameObject.Find("TransitionCamera").GetComponent<Camera>();
+	    pauseCamera = GameObject.Find("PauseCamera").GetComponent<Camera>();
+	    currentCamera = dishCamera;
+
+        // GUI
+	    mousePositionText = GameObject.Find("MousePositionText");
+	    exitButton = GameObject.Find("ExitButton");
+	    resumeButton = GameObject.Find("ResumeButton");
+
+        // Transition screens
+	    richTransitionSprite = GameObject.Find("RichTransition").GetComponent<SpriteRenderer>();
+        livingTransitionSprite = GameObject.Find("LivingTransition").GetComponent<SpriteRenderer>();
+        minimumTransitionSprite = GameObject.Find("MinimumTransition").GetComponent<SpriteRenderer>();
 
 		// Initial state
-	    SetState(State.Dining);
+	    SetState(State.Dish);
 	}
 
     // Update is called once per frame.
     void Update() {
-        if (currentState == State.Dining) 
+        if (debug)
         {
-            if (!diningCamera.enabled) {
-                dishCamera.enabled = false;
-                diningCamera.enabled = true;
-            }
+            mousePositionText.guiText.text = Input.mousePosition.x + "," + Input.mousePosition.y;
+        }
 
-            GetInput();
-        } 
-        else if (currentState == State.Dish) {
-            if (!dishCamera.enabled) {
-                diningCamera.enabled = false;
-                dishCamera.enabled = true;
+        GetInput();
 
-                StartCoroutine(DishScene(1));
-            }
-        } 
-        else if (currentState == State.Win) {
-            winText.SetActive(true);
+        switch (currentState)
+        {
+            case State.Dining:                
+                // End wave if missed 5 consecutive times.
+                if (missCount == 5)
+                {
+                    EndWave();
+                }
+
+                if (customerSpawnCooldown > 0)
+                {
+                    // Decrement cooldown.
+                    customerSpawnCooldown -= Time.deltaTime;
+                }
+                else if (customerCount < customersInWave)
+                {
+                    // Cooldown over. Spawn another customer if there are more in this wave.
+                    SpawnRandomCustomer();
+                }
+                break;
         }
 
         if (debug) {
@@ -136,9 +208,6 @@ public class GameState : MonoBehaviour {
             debugInfo.Add("customers in wave: " + customersInWave);
             debugInfo.Add("active customers: " + activeCustomers);
             debugInfo.Add("total customers: " + customerCount);
-            debugInfo.Add("total kills: " + killCount);
-            debugInfo.Add("current wave kills: " + currentWaveKillCount);
-            debugInfo.Add("plate pile level (1-3): " + platePileLevel);
             
             String str = "";
             foreach (String info in debugInfo) {
@@ -148,94 +217,71 @@ public class GameState : MonoBehaviour {
                 
             debugText.guiText.text = str;
         }
-
     }
 
-    IEnumerator DishScene(float duration)
+    public void StartCustomerSpawnCooldown() 
     {
-        Debug.Log("kill goal: " + (double)customersInWave * pctCustomersKilled);
-        // Change plate pile level.
-        if (currentWaveKillCount < ((double)customersInWave * pctCustomersKilled)) {
-            
-        } else {
-            
-        }
-
-        if (currentState != State.GameOver) {
-            dishwasherManager.SetState(DishwasherManager.DishwasherState.MoveToBusPosition);
-            //MoveToDiningRoom();
-        }
-
-        return null;
+        customerSpawnCooldown = customerSpawnCooldownMax;
     }
 
     private void SpawnRandomCustomer()
     {
         activeCustomers++;
         customerCount++;
-        int random = Random.Range(1, 6);
+        int random = Random.Range(1, 7);
 
         switch (random)
         {
             case 1:
-                SpawnCustomer1();
+                SpawnCustomer(customer1, customer1Instance, customer1Manager);
                 break;
             case 2:
-                SpawnCustomer2();
+                SpawnCustomer(customer2, customer2Instance, customer2Manager);
                 break;
             case 3:
-                SpawnCustomer3();
+                SpawnCustomer(customer3, customer3Instance, customer3Manager);
                 break;
             case 4:
-                SpawnCustomer4();
+                SpawnCustomer(customer4, customer4Instance, customer4Manager);
                 break;
             case 5:
-                SpawnCustomer5();
+                SpawnCustomer(customer5, customer5Instance, customer5Manager);
                 break;
             case 6:
-                SpawnCustomer6();
+                SpawnCustomer(customer6, customer6Instance, customer6Manager);
                 break;
         }
     }
 
-    void SpawnCustomer1()
-    {
-        SpawnCustomer(customer1, customer1Instance, customer1Manager, "Customer1");
-        //currentCustomer++;
-    }
+    //TODO: Refactor?
+    public void SpawnCustomer(GameObject customer, GameObject customerInstance, CustomerManager customerManager) {
+        // Randomly pick one of two spawnpoints.
+        int random = Random.Range(1, 3);
 
-    void SpawnCustomer2()
-    {
-        SpawnCustomer(customer2, customer2Instance, customer2Manager, "Customer2");
-        //currentCustomer++;
-    }
+        Vector2 customerPositionSpawn;
 
-    void SpawnCustomer3() 
-    {
-         SpawnCustomer(customer3, customer3Instance, customer3Manager, "Customer3");
-         //currentCustomer++;
-    }
-    void SpawnCustomer4() 
-    {
-        SpawnCustomer(customer4, customer4Instance, customer4Manager, "Customer4");
-        //currentCustomer++;
-    }
-    void SpawnCustomer5() {
-        SpawnCustomer(customer5, customer5Instance, customer5Manager, "Customer5");
-        //currentCustomer++;
-    }
-    void SpawnCustomer6() {
-        SpawnCustomer(customer6, customer6Instance, customer6Manager, "Customer6");
-        //currentCustomer++;
-    }
+        if (random == 1)
+        {
+            // Spawn at bottom of screen. Adjust spawnpoint y by a random amount.
+            customerPositionSpawn = customerPositionSpawn1;
+            random = Random.Range(1, 4);
+            customerPositionSpawn.y -= random;
+        }
+        else
+        {
+            // Spawn at left of screen. Adjust spawnpoint x by a random amount.
+            customerPositionSpawn = customerPositionSpawn2;
+            random = Random.Range(1, 4);
+            customerPositionSpawn.x -= random;
+        }
 
-    public void SpawnCustomer(GameObject customer, GameObject customerInstance, CustomerManager customerManager, string tag) {
-        // Instantiate, add collider, set to active.
-        customerInstance = Instantiate(customer, customerPositionSpawn, gameObject.transform.rotation) as GameObject;
+        Debug.Log("spawnpoint = " + customerPositionSpawn.x + "," + customerPositionSpawn.y);
+
+        // Instantiate customer.
+        customerInstance = (GameObject)Instantiate(customer, customerPositionSpawn, gameObject.transform.rotation);
 
         if (customerInstance != null) {
             customerInstance.SetActive(true);
-            //customerInstance.tag = tag;
             customerInstance.name = "Customer_" + customerCount;
 
             customerManager = customerInstance.GetComponent<CustomerManager>();
@@ -248,122 +294,182 @@ public class GameState : MonoBehaviour {
 
             // Enter state.
             customerManager.SetState(CustomerManager.CustomerStates.MoveToMid);
+
+            // Start cooldown until another customer spawns.
+            StartCustomerSpawnCooldown();
         } else {
-            Debug.Log("Failed to instantiate " + tag);
+            Debug.Log("Failed to instantiate customer");
         }
+    }
+
+    bool IsValidClick(Vector3 mousePosition)
+    {
+        // Click position must not be too close to the Dishwasher, and cannot currently be throwing.
+        if (diningCamera.ScreenToWorldPoint(mousePosition).x > dishwasherManager.GetPositionX() + 4 && !throwing)
+        {
+            return true;
+        }
+
+        return false;
     }
 	
     void GetInput() 
     {
-        if (Input.GetMouseButtonDown(0) && !throwing) 
+        if (currentState == State.Dining)
         {
-            if (dishwasherManager.GetDishThrowCooldown() <= 0f || debug)
+            if (!clicked && Input.GetMouseButtonDown(0) && IsValidClick(Input.mousePosition))
             {
-                throwing = true;
-                StartCoroutine(SpawnDish(diningCamera.ScreenToWorldPoint(Input.mousePosition), dishSpawnDelay));
-                dishwasherManager.GetComponent<Animator>().Play("throwing");
+                //Debug.Log("dish x: " + dishwasherManager.GetPositionX());
+                if (dishwasherManager.GetDishThrowCooldown() <= 0f || debug)
+                {
+                    throwing = true;
+                    Vector2 clickedPosition = diningCamera.ScreenToWorldPoint(Input.mousePosition);
+                    
+                    StartCoroutine(SpawnDish(clickedPosition, dishSpawnDelay));
+                    dishwasherManager.GetComponent<Animator>().Play("throwing");
+                }
             }
-        } 
-        
-        if (Input.GetKey(KeyCode.RightArrow)) 
+            else if (clicked)
+            {
+                clicked = false;
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.Escape))
         {
-            Debug.Log("hit right");
-            Application.LoadLevel("The Dishwasher");
+            switch (currentState)
+            {
+                case State.Dining:
+                    previousState = State.Dining;
+                    PauseGame();
+                    break;
+                
+                case State.Dish:
+                    previousState = State.Dish;
+                    PauseGame();
+                    break;
+                
+                case State.Transition:
+                    previousState = State.Transition;
+                    PauseGame();
+                    break;
+
+                case State.Pause:
+                    currentState = previousState;
+                    // Unpause game.
+                    audioManager.PlayMenuSFX();
+                    UnpauseGame();
+                    break;
+            }
         }
     }
 
-    public IEnumerator SpawnDish(Vector2 targetPosition, float duration)
+    public void PauseGame()
+    {
+        // Display pause screen.
+        currentState = State.Pause;
+        currentCamera.enabled = false;
+        pauseCamera.enabled = true;
+
+        mousePositionText.guiText.enabled = false;
+        audioManager.PauseThemeBGM();
+
+        cursorManager.ShowCursor();
+
+        // Enable pause screen buttons.
+        exitButton.SetActive(true);
+        resumeButton.SetActive(true);
+        
+        // Pause game.
+        Time.timeScale = 0;
+    }
+
+    public void UnpauseGame()
+    {
+        // Must set to true, else click will be processed in Update() as well.
+        clicked = true;
+        currentState = previousState;
+        Time.timeScale = 1;
+        mousePositionText.guiText.enabled = true;
+        audioManager.PlayThemeBGM();
+
+        // Disable pause screen buttons.
+        exitButton.SetActive(false);
+        resumeButton.SetActive(false);
+
+        // Re-enable last camera.
+        switch (currentCamera.name) { 
+            case "DiningCamera":
+                diningCamera.enabled = true;
+                cursorManager.SetCursorNormal();
+                break;
+            
+            case "DishCamera":
+                dishCamera.enabled = true;
+                cursorManager.HideCursor();
+                break;
+
+            case "TransitionCamera":
+                transitionCamera.enabled = true;
+                cursorManager.HideCursor();
+                break;
+        }
+    }
+
+    public IEnumerator SpawnDish(Vector2 clickedPosition, float duration)
     {
         if (!debug)
         {
             yield return new WaitForSeconds(duration);
         }
 
-        GameObject plateInstance = Instantiate(plate, plateSpawnpoint.transform.position, plateSpawnpoint.transform.rotation) as GameObject;
+        GameObject dishInstance = Instantiate(dish, dishSpawnpoint.transform.position, dishSpawnpoint.transform.rotation) as GameObject;
         
-        plateInstance.SetActive(true);
+        dishInstance.SetActive(true);
         
-        if (plateInstance != null)
+        if (dishInstance != null)
         {
-            plateManager = plateInstance.GetComponent<PlateManager>();
+            dishManager = dishInstance.GetComponent<DishManager>();
         }
         else
         {
-            Debug.Log("Failed to instantiate plate");
+            Debug.Log("Failed to instantiate dish");
         }
-        plateManager.SetTarget(targetPosition);
-        plateManager.ChangeState(PlateManager.PlateStates.Throw);
+        dishManager.SetClickedPosition(clickedPosition);
+        dishManager.ChangeState(DishManager.DishStates.Throw);
         dishwasherManager.StartDishThrowCooldown();
         throwing = false;
     }
 
     public void HitCustomer(GameObject customer)
     {
-        //plateHitSound.Play();
         customer.GetComponent<CustomerManager>().SetState(CustomerManager.CustomerStates.Hit);
     }
 
-    public void KilledCustomer(String customerTag)
+    public void KilledCustomer(int customerPointValue)
     {
-        killCount++;
-        currentWaveKillCount++;
+        missCount = 0;
         CustomerLeft();
-
-        if (customerCount < customersInWave)
-        {
-            SpawnCustomer(customerTag);
-        }
-        else
-        {
-            //SetState(State.Win);
-            //winText.SetActive(true);
-        }
-    }
-
-    public void SpawnCustomer(String customerTag)
-    {
-        // Spawn new customer.
-        switch (customerTag) {
-            case "Customer1":
-                SpawnCustomer1();
-                break;
-            case "Customer2":
-                SpawnCustomer2();
-                break;
-            case "Customer3":
-                SpawnCustomer3();
-                break;
-            case "Customer4":
-                SpawnCustomer4();
-                break;
-        }
     }
 
     public void SetState(State state)
     {
         currentState = state;
 
+        if (currentState == State.Dish)
+        {
+            EnterDishState();
+        }
         if (currentState == State.Dining)
         {
             EnterDiningState();
         }
 
-        if (currentState == State.Win) {
-            EnterWinState();
-        }
-        else if (currentState == State.GameOver) {
-            EnterGameOverState();
+        if (currentState == State.KillScreen)
+        {
+            EnterKillScreenState();
         }
     }
-
-    private void EnterWinState() {
-
-    }
-
-    private void EnterGameOverState() {
-        winText.guiText.text = "GAME OVER";
-        winText.SetActive(true);
-    }  
 
     public State GetCurrentState()
     {
@@ -372,48 +478,160 @@ public class GameState : MonoBehaviour {
 
     public void CustomerLeft()
     {
+        SetCustomerInHitArea(false);
         activeCustomers--;
-        if (customerCount < customersInWave)
+
+        if (activeCustomers == 0)
         {
-            SpawnRandomCustomer();
-        }
-        else if (activeCustomers == 0)
-        {
-            Debug.Log("wave " + currentWave + " complete");
+            //Debug.Log("wave " + currentWave + " complete");
             EndWave();
         }
     }
 
-    private void StartWave() {
-        currentWave++;
+    private void StartWave()
+    {
+        //Debug.Log("start wave " + currentWave);
         currentWaveKillCount = 0;
-        customersInWave = customerWaves[currentWave];
+        missCount = 0;
         customerCount = 0;
-
+        customersInWave = customerWaves[currentWave];
         SpawnRandomCustomer();
-
-        // Spawn first 4 customers in wave.
-        for (int i = 0; i < 4; i++) {
-            //SpawnRandomCustomer();
-        }
     }
 
     private void EndWave()
     {
         if (currentWave == customerWaves.Length - 1)
         {
-            Debug.Log("all waves complete");
-            SetState(State.Win);
+            // Finished last wave. Display kill screen.
+            SetState(State.KillScreen);
         }
         else
         {
+            // Show transition and start next wave.
+            SetState(State.Transition);
+            StartCoroutine(DisplayTransition());
+
             customers.Clear();
-            dishwasherManager.SetState(DishwasherManager.DishwasherState.MoveToDiningExit);
+            currentWave++;
         }
     }
-    
-    public void EnterDiningState()
+
+    private IEnumerator DisplayTransition()
     {
+        cursorManager.HideCursor();
+        // Wait 2 seconds.
+        yield return new WaitForSeconds(2);
+
+        switch (currentWave)
+        {
+            case 1:
+                minimumTransitionSprite.enabled = true;
+                break;
+            case 2:
+                minimumTransitionSprite.enabled = false;
+                livingTransitionSprite.enabled = true;
+                break;
+            case 3:
+                livingTransitionSprite.enabled = false;
+                richTransitionSprite.enabled = true;
+                break;
+        }
+
+        diningCamera.enabled = false;
+        transitionCamera.enabled = true;
+        currentCamera = transitionCamera;
+        
+        // Wait 5 seconds.
+        yield return new WaitForSeconds(5);
+        transitionCamera.enabled = false; 
+        diningCamera.enabled = true;
+        currentCamera = diningCamera;
+
+        EnterDishState();
+    }
+
+    private void EnterDiningState()
+    {
+        cursorManager.ShowCursor();
+        dishwasher.gameObject.SetActive(true);
+        dishwasherWalking.gameObject.SetActive(false);
+        dishwasherManager = GameObject.Find("Dishwasher").GetComponent<DishwasherManager>();
+        
+        diningCamera.enabled = true;
+        dishCamera.enabled = false;
+        currentCamera = diningCamera;
+
         StartWave();
+    }
+
+    private void EnterDishState()
+    {
+        // Disable regular Dishwasher game object.
+        dishwasher.gameObject.SetActive(false);
+
+        // Enable walking Dishwasher game object. Walk toward dish room.
+        dishwasherWalking.gameObject.SetActive(true);
+        dishwasherManager = GameObject.Find("DishwasherWalking").GetComponent<DishwasherManager>();
+        dishwasherManager.SetState(DishwasherManager.DishwasherState.MoveToBusPosition);
+
+        diningCamera.enabled = false;
+        dishCamera.enabled = true;
+        currentCamera = dishCamera;
+    }
+
+    void EnterKillScreenState() {
+        // TODO: Kill screen.
+    }
+
+    public void DishMissedCustomer()
+    {
+        missCount++;
+    }
+
+    public void PlayMenuSFX()
+    {
+        audioManager.PlayMenuSFX();
+    }
+    public void PlayExplosionSFX() 
+    {
+        audioManager.PlayExplosionSFX();
+    }
+
+    public void SetCursorHover()
+    {
+        if (currentState == State.Dining)
+        {
+            cursorManager.SetCursorHover();
+        }
+    }
+
+    public void SetCursorNormal()
+    {
+        if (currentState == State.Dining)
+        {
+            cursorManager.SetCursorNormal();
+        }
+    }
+
+    public void SetCustomerInHitArea(bool inHitArea)
+    {
+        this.customerInHitArea = inHitArea;
+        //Debug.Log("customer in hit area: " + customerInHitArea);
+    }
+
+    public void SetClickedInHitArea(bool inHitArea)
+    {
+        this.clickedInHitArea = inHitArea;
+        //Debug.Log("clicked in hit area: " + clickedInHitArea);
+    }
+
+    public bool GetCustomerInHitArea()
+    {
+        return customerInHitArea;
+    }
+
+    public bool GetClickedInHitArea()
+    {
+        return clickedInHitArea;
     }
 }
