@@ -69,7 +69,6 @@ public class GameState : MonoBehaviour {
     private Camera dishCamera;
     private Camera transitionCamera;
     private Camera pauseCamera;
-    private Camera lastCamera;
     private Camera currentCamera;
     #endregion Cameras
 
