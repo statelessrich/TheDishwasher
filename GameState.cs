@@ -17,6 +17,7 @@ public class GameState : MonoBehaviour {
     #region Misc. Managers
     private CursorManager cursorManager;
     private AudioManager audioManager;
+    private TitleManager titleManager;
     #endregion
 
     #region Dish
@@ -91,27 +92,30 @@ public class GameState : MonoBehaviour {
     #endregion Scoring
 
     #region State
-    public enum State {
+    public enum State 
+    {
         Title,
         Transition,
         Pause,
         Tutorial,
         Credits,
         Dining,
-        Dish,
-        KillScreen
+        Dish
     }
     public State currentState;
     private State previousState;
     #endregion State
 
     #region Flags
-    public const bool debug = false;
+    private bool debug = false;
     private bool throwing;
     private bool clicked;
     private bool clickedInHitArea;
-    private bool customerInHitArea;
+    private bool cursorInHitArea;
     #endregion Flags
+
+    private Ray ray;
+    private RaycastHit hit;
 
     #region Transitions
     private SpriteRenderer richTransitionSprite;
@@ -126,20 +130,11 @@ public class GameState : MonoBehaviour {
 	{	   
         // Managers
 	    cursorManager = GetComponent<CursorManager>();
-        
-        /* Check if AudioManager from Title scene exists. 
-         * If so, set to Title scene AudioManager and delete the game scene's version.
-         * Else, set the AudioManager to the game scene's audio manager.
-         */
-        if (GameObject.Find("AudioManager")) {
-            Destroy(GameObject.Find("AudioManagerGame"));
-            audioManager = GameObject.Find("AudioManager").GetComponent<AudioManager>();
-        } else {
-            audioManager = GameObject.Find("AudioManagerGame").GetComponent<AudioManager>();
-        }
+        audioManager = GameObject.Find("AudioManager").GetComponent<AudioManager>();
+	    titleManager = GameObject.Find("TitleManager").GetComponent<TitleManager>();
 
 		// Dishwasher
-	    dishwasherManager = GameObject.FindGameObjectWithTag("Dishwasher").GetComponent<DishwasherManager>();
+	    dishwasherManager = GameObject.Find("Dishwasher").GetComponent<DishwasherManager>();
 	    dishwasher = GameObject.Find("Dishwasher");
         dishwasherWalking = GameObject.Find("DishwasherWalking");
         
@@ -167,11 +162,16 @@ public class GameState : MonoBehaviour {
         minimumTransitionSprite = GameObject.Find("MinimumTransition").GetComponent<SpriteRenderer>();
 
 		// Initial state
-	    SetState(State.Dish);
+	    SetState(State.Title);
+	    if (debug)
+	    {
+	        SetState(State.Dining);
+	    }
 	}
 
     // Update is called once per frame.
-    void Update() {
+    void Update() 
+    {
         if (debug)
         {
             mousePositionText.guiText.text = Input.mousePosition.x + "," + Input.mousePosition.y;
@@ -185,7 +185,7 @@ public class GameState : MonoBehaviour {
                 // End wave if missed 5 consecutive times.
                 if (missCount == 5)
                 {
-                    EndWave();
+                    //EndWave();
                 }
 
                 if (customerSpawnCooldown > 0)
@@ -197,6 +197,16 @@ public class GameState : MonoBehaviour {
                 {
                     // Cooldown over. Spawn another customer if there are more in this wave.
                     SpawnRandomCustomer();
+                }
+                /* 
+                 * Cast ray from mouse position to the immediate right. If did not hit the hit area collider,
+                 * set cursor outside of hit area. This is done because we can't rely on the hit area's
+                 * OnTriggerEnter and OnTriggerExit.
+                 * 
+                 */
+                if (!Physics2D.Raycast(diningCamera.ScreenToWorldPoint(Input.mousePosition), Vector2.right, 1f))
+                {
+                    SetCursorInHitArea(false);
                 }
                 break;
         }
@@ -274,7 +284,7 @@ public class GameState : MonoBehaviour {
             customerPositionSpawn.x -= random;
         }
 
-        Debug.Log("spawnpoint = " + customerPositionSpawn.x + "," + customerPositionSpawn.y);
+        //Debug.Log("spawnpoint = " + customerPositionSpawn.x + "," + customerPositionSpawn.y);
 
         // Instantiate customer.
         customerInstance = (GameObject)Instantiate(customer, customerPositionSpawn, gameObject.transform.rotation);
@@ -296,7 +306,8 @@ public class GameState : MonoBehaviour {
 
             // Start cooldown until another customer spawns.
             StartCustomerSpawnCooldown();
-        } else {
+        } else 
+        {
             Debug.Log("Failed to instantiate customer");
         }
     }
@@ -438,6 +449,7 @@ public class GameState : MonoBehaviour {
         dishManager.ChangeState(DishManager.DishStates.Throw);
         dishwasherManager.StartDishThrowCooldown();
         throwing = false;
+        audioManager.PlayRandomVoiceover();
     }
 
     public void HitCustomer(GameObject customer)
@@ -445,9 +457,10 @@ public class GameState : MonoBehaviour {
         customer.GetComponent<CustomerManager>().SetState(CustomerManager.CustomerStates.Hit);
     }
 
-    public void KilledCustomer(int customerPointValue)
+    public void KilledCustomer()
     {
         missCount = 0;
+        //PlayRandomVoiceover();
         CustomerLeft();
     }
 
@@ -455,6 +468,10 @@ public class GameState : MonoBehaviour {
     {
         currentState = state;
 
+        if (currentState == State.Title)
+        {
+            //titleManager.ChangeState(TitleManager.TitleState.Title);
+        }
         if (currentState == State.Dish)
         {
             EnterDishState();
@@ -464,9 +481,9 @@ public class GameState : MonoBehaviour {
             EnterDiningState();
         }
 
-        if (currentState == State.KillScreen)
+        if (currentState == State.Credits)
         {
-            EnterKillScreenState();
+            EnterCreditsState();
         }
     }
 
@@ -477,7 +494,7 @@ public class GameState : MonoBehaviour {
 
     public void CustomerLeft()
     {
-        SetCustomerInHitArea(false);
+        //SetCustomerInHitArea(false);
         activeCustomers--;
 
         if (activeCustomers == 0)
@@ -502,7 +519,7 @@ public class GameState : MonoBehaviour {
         if (currentWave == customerWaves.Length - 1)
         {
             // Finished last wave. Display kill screen.
-            SetState(State.KillScreen);
+            SetState(State.Credits);
         }
         else
         {
@@ -573,13 +590,22 @@ public class GameState : MonoBehaviour {
         dishwasherManager = GameObject.Find("DishwasherWalking").GetComponent<DishwasherManager>();
         dishwasherManager.SetState(DishwasherManager.DishwasherState.MoveToBusPosition);
 
+        cursorManager.HideCursor();
         diningCamera.enabled = false;
         dishCamera.enabled = true;
         currentCamera = dishCamera;
     }
 
-    void EnterKillScreenState() {
-        // TODO: Kill screen.
+    void EnterCreditsState()
+    {
+        StartCoroutine(WaitAndDisplayCredits());
+    }
+
+    IEnumerator WaitAndDisplayCredits()
+    {
+        cursorManager.HideCursor();
+        yield return new WaitForSeconds(2);
+        titleManager.ChangeState(TitleManager.TitleState.EndCredits);
     }
 
     public void DishMissedCustomer()
@@ -612,10 +638,9 @@ public class GameState : MonoBehaviour {
         }
     }
 
-    public void SetCustomerInHitArea(bool inHitArea)
+    public void SetCursorInHitArea(bool inHitArea)
     {
-        this.customerInHitArea = inHitArea;
-        //Debug.Log("customer in hit area: " + customerInHitArea);
+        this.cursorInHitArea = inHitArea;
     }
 
     public void SetClickedInHitArea(bool inHitArea)
@@ -624,13 +649,39 @@ public class GameState : MonoBehaviour {
         //Debug.Log("clicked in hit area: " + clickedInHitArea);
     }
 
-    public bool GetCustomerInHitArea()
+    public bool GetCursorInHitArea() 
     {
-        return customerInHitArea;
+        return cursorInHitArea;
     }
 
     public bool GetClickedInHitArea()
     {
         return clickedInHitArea;
+    }
+
+    public void HideCursor()
+    {
+        cursorManager.HideCursor();
+    }
+
+    public void ShowCursor()
+    {
+        cursorManager.ShowCursor();
+    }
+
+    public void ExitToTitle()
+    {
+        SetState(State.Title);
+        titleManager.ChangeState(TitleManager.TitleState.Title);
+        titleManager.DisplayTitle();
+        audioManager.PlayThemeBGM();
+    }
+
+    public void ResetGame()
+    {
+        currentWave = 0;
+        Time.timeScale = 1;
+        SetState(State.Dish);
+        dishwasherManager.SetState(DishwasherManager.DishwasherState.MoveToBusPosition);
     }
 }
