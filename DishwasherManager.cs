@@ -3,7 +3,7 @@
 public class DishwasherManager : MonoBehaviour
 {
     private GameState gameState;
-    public DishwasherState currentState;
+    private DishwasherState currentState;
 
     private GameObject diningExit;
     private GameObject dishExit;
@@ -68,7 +68,6 @@ public class DishwasherManager : MonoBehaviour
                 // Check if Dishwasher has reached exit.
                 if (gameObject.transform.position.x <= diningExit.transform.position.x)
                 {
-                    Debug.Log("REACHED EXIT");
                     gameState.SetState(GameState.State.Dish);
                     transform.position = dishExit.transform.position;
                 }

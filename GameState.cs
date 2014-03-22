@@ -27,40 +27,14 @@ public class GameState : MonoBehaviour {
     private const float dishSpawnDelay = 0.5f;
     #endregion Dish
 
-    #region Customers
-    public GameObject customer1;
-    private GameObject customer1Instance;
-    private CustomerManager customer1Manager;
-
-    public GameObject customer2;
-    private GameObject customer2Instance;
-    private CustomerManager customer2Manager;
-
-    public GameObject customer3;
-    private GameObject customer3Instance;
-    private CustomerManager customer3Manager;
-
-    public GameObject customer4;
-    private GameObject customer4Instance;
-    private CustomerManager customer4Manager;
-
-    public GameObject customer5;
-    private GameObject customer5Instance;
-    private CustomerManager customer5Manager;
-
-    public GameObject customer6;
-    private GameObject customer6Instance;
-    private CustomerManager customer6Manager;
-
+    #region Customer Positions
     private Vector2 customerPositionSpawn1;
     private Vector2 customerPositionSpawn2;
     private Vector2 customerPositionMid;
     private Vector2 customerPositionEnd;
-    #endregion Customers
+    #endregion Customer Positions
 
     #region GUI
-    public GameObject debugText;
-    public GameObject mousePositionText;
     private GameObject exitButton;
     private GameObject resumeButton;
     #endregion GUI
@@ -74,22 +48,16 @@ public class GameState : MonoBehaviour {
     #endregion Cameras
 
     #region Customer/Wave Info
-    public List<GameObject> customers;
     public int[] customerWaves;
-    public int currentWave;
+    private int currentWave;
     // Customers currently on screen.
-    public int activeCustomers;
+    private int activeCustomers;
     // Total customers created in current wave.
-    public int customerCount;
-    public int customersInWave;
-    public int currentWaveKillCount;
+    private int customerCount;
+    private int customersInWave;
     private const float customerSpawnCooldownMax = 2f;
     private float customerSpawnCooldown = 0f;
     #endregion Customer/Wave Info
-
-    #region Scoring
-    public int missCount;
-    #endregion Scoring
 
     #region State
     public enum State 
@@ -102,7 +70,7 @@ public class GameState : MonoBehaviour {
         Dining,
         Dish
     }
-    public State currentState;
+    private State currentState;
     private State previousState;
     #endregion State
 
@@ -152,7 +120,6 @@ public class GameState : MonoBehaviour {
 	    currentCamera = dishCamera;
 
         // GUI
-	    mousePositionText = GameObject.Find("MousePositionText");
 	    exitButton = GameObject.Find("ExitButton");
 	    resumeButton = GameObject.Find("ResumeButton");
 
@@ -172,22 +139,11 @@ public class GameState : MonoBehaviour {
     // Update is called once per frame.
     void Update() 
     {
-        if (debug)
-        {
-            mousePositionText.guiText.text = Input.mousePosition.x + "," + Input.mousePosition.y;
-        }
-
         GetInput();
 
         switch (currentState)
         {
-            case State.Dining:                
-                // End wave if missed 5 consecutive times.
-                if (missCount == 5)
-                {
-                    //EndWave();
-                }
-
+            case State.Dining:
                 if (customerSpawnCooldown > 0)
                 {
                     // Decrement cooldown.
@@ -210,22 +166,6 @@ public class GameState : MonoBehaviour {
                 }
                 break;
         }
-
-        if (debug) {
-            List<String> debugInfo = new List<String>();
-            debugInfo.Add("wave: " + (currentWave + 1));
-            debugInfo.Add("customers in wave: " + customersInWave);
-            debugInfo.Add("active customers: " + activeCustomers);
-            debugInfo.Add("total customers: " + customerCount);
-            
-            String str = "";
-            foreach (String info in debugInfo) {
-                str += info;
-                str += "\n";
-            } 
-                
-            debugText.guiText.text = str;
-        }
     }
 
     public void StartCustomerSpawnCooldown() 
@@ -238,32 +178,10 @@ public class GameState : MonoBehaviour {
         activeCustomers++;
         customerCount++;
         int random = Random.Range(1, 7);
-
-        switch (random)
-        {
-            case 1:
-                SpawnCustomer(customer1, customer1Instance, customer1Manager);
-                break;
-            case 2:
-                SpawnCustomer(customer2, customer2Instance, customer2Manager);
-                break;
-            case 3:
-                SpawnCustomer(customer3, customer3Instance, customer3Manager);
-                break;
-            case 4:
-                SpawnCustomer(customer4, customer4Instance, customer4Manager);
-                break;
-            case 5:
-                SpawnCustomer(customer5, customer5Instance, customer5Manager);
-                break;
-            case 6:
-                SpawnCustomer(customer6, customer6Instance, customer6Manager);
-                break;
-        }
+        SpawnCustomer(GameObject.FindGameObjectWithTag("Customer" + random));
     }
 
-    //TODO: Refactor?
-    public void SpawnCustomer(GameObject customer, GameObject customerInstance, CustomerManager customerManager) {
+    public void SpawnCustomer(GameObject customer) {
         // Randomly pick one of two spawnpoints.
         int random = Random.Range(1, 3);
 
@@ -284,29 +202,25 @@ public class GameState : MonoBehaviour {
             customerPositionSpawn.x -= random;
         }
 
-        //Debug.Log("spawnpoint = " + customerPositionSpawn.x + "," + customerPositionSpawn.y);
-
         // Instantiate customer.
-        customerInstance = (GameObject)Instantiate(customer, customerPositionSpawn, gameObject.transform.rotation);
+        GameObject customerInstance = (GameObject)Instantiate(customer, customerPositionSpawn, gameObject.transform.rotation);
 
         if (customerInstance != null) {
             customerInstance.SetActive(true);
             customerInstance.name = "Customer_" + customerCount;
 
-            customerManager = customerInstance.GetComponent<CustomerManager>();
+            CustomerManager customerManager = customerInstance.GetComponent<CustomerManager>();
             customerManager.enabled = true;
             customerManager.SetPositionMid(customerPositionMid);
             customerManager.SetPositionEnd(customerPositionEnd);
-
-            // Add to customer list.
-            customers.Add(customerInstance);
 
             // Enter state.
             customerManager.SetState(CustomerManager.CustomerStates.MoveToMid);
 
             // Start cooldown until another customer spawns.
             StartCustomerSpawnCooldown();
-        } else 
+        } 
+        else 
         {
             Debug.Log("Failed to instantiate customer");
         }
@@ -329,7 +243,6 @@ public class GameState : MonoBehaviour {
         {
             if (!clicked && Input.GetMouseButtonDown(0) && IsValidClick(Input.mousePosition))
             {
-                //Debug.Log("dish x: " + dishwasherManager.GetPositionX());
                 if (dishwasherManager.GetDishThrowCooldown() <= 0f || debug)
                 {
                     throwing = true;
@@ -381,7 +294,6 @@ public class GameState : MonoBehaviour {
         currentCamera.enabled = false;
         pauseCamera.enabled = true;
 
-        mousePositionText.guiText.enabled = false;
         audioManager.PauseThemeBGM();
 
         cursorManager.ShowCursor();
@@ -400,7 +312,6 @@ public class GameState : MonoBehaviour {
         clicked = true;
         currentState = previousState;
         Time.timeScale = 1;
-        mousePositionText.guiText.enabled = true;
         audioManager.PlayThemeBGM();
 
         // Disable pause screen buttons.
@@ -441,10 +352,7 @@ public class GameState : MonoBehaviour {
         {
             dishManager = dishInstance.GetComponent<DishManager>();
         }
-        else
-        {
-            Debug.Log("Failed to instantiate dish");
-        }
+
         dishManager.SetClickedPosition(clickedPosition);
         dishManager.ChangeState(DishManager.DishStates.Throw);
         dishwasherManager.StartDishThrowCooldown();
@@ -459,8 +367,6 @@ public class GameState : MonoBehaviour {
 
     public void KilledCustomer()
     {
-        missCount = 0;
-        //PlayRandomVoiceover();
         CustomerLeft();
     }
 
@@ -468,10 +374,6 @@ public class GameState : MonoBehaviour {
     {
         currentState = state;
 
-        if (currentState == State.Title)
-        {
-            //titleManager.ChangeState(TitleManager.TitleState.Title);
-        }
         if (currentState == State.Dish)
         {
             EnterDishState();
@@ -494,21 +396,16 @@ public class GameState : MonoBehaviour {
 
     public void CustomerLeft()
     {
-        //SetCustomerInHitArea(false);
         activeCustomers--;
 
         if (activeCustomers == 0)
         {
-            //Debug.Log("wave " + currentWave + " complete");
             EndWave();
         }
     }
 
     private void StartWave()
     {
-        //Debug.Log("start wave " + currentWave);
-        currentWaveKillCount = 0;
-        missCount = 0;
         customerCount = 0;
         customersInWave = customerWaves[currentWave];
         SpawnRandomCustomer();
@@ -527,7 +424,6 @@ public class GameState : MonoBehaviour {
             SetState(State.Transition);
             StartCoroutine(DisplayTransition());
 
-            customers.Clear();
             currentWave++;
         }
     }
@@ -535,6 +431,7 @@ public class GameState : MonoBehaviour {
     private IEnumerator DisplayTransition()
     {
         cursorManager.HideCursor();
+
         // Wait 2 seconds.
         yield return new WaitForSeconds(2);
 
@@ -608,11 +505,6 @@ public class GameState : MonoBehaviour {
         titleManager.ChangeState(TitleManager.TitleState.EndCredits);
     }
 
-    public void DishMissedCustomer()
-    {
-        missCount++;
-    }
-
     public void PlayMenuSFX()
     {
         audioManager.PlayMenuSFX();
@@ -646,7 +538,6 @@ public class GameState : MonoBehaviour {
     public void SetClickedInHitArea(bool inHitArea)
     {
         this.clickedInHitArea = inHitArea;
-        //Debug.Log("clicked in hit area: " + clickedInHitArea);
     }
 
     public bool GetCursorInHitArea() 
