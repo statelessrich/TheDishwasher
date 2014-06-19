@@ -2,7 +2,7 @@
 
 public class DishManager : MonoBehaviour
 {
-    private GameState gameState;
+    public GameState gameState;
     private float moveSpeed = 10f;
 
     private Vector2 endPosition;
@@ -26,7 +26,7 @@ public class DishManager : MonoBehaviour
     // Use this for initialization
     private void Start()
     {
-        gameState = GameObject.FindGameObjectWithTag("GameState").GetComponent<GameState>();
+
     }
 
     // Update is called once per frame

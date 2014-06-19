@@ -2,16 +2,14 @@
 
 public class ButtonManager : MonoBehaviour
 {
-    private TitleManager titleManager;
-    private CursorManager cursorManager;
-    private GameState gameState;
+    public TitleManager titleManager;
+    public CursorManager cursorManager;
+    public GameState gameState;
 
 	// Use this for initialization
 	void Start ()
 	{
-        titleManager = GameObject.Find("TitleManager").GetComponent<TitleManager>();
-        gameState = GameObject.Find("GameState").GetComponent<GameState>();
-        cursorManager = GameObject.Find("GameState").GetComponent<CursorManager>();
+
 	}
 
     void OnMouseDown()

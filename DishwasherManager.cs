@@ -2,15 +2,15 @@
 
 public class DishwasherManager : MonoBehaviour
 {
-    private GameState gameState;
+    public GameState gameState;
     private DishwasherState currentState;
 
-    private GameObject diningExit;
-    private GameObject dishExit;
-    private GameObject diningPosition;
-    private GameObject dishwasherBusPosition;
-    private GameObject busPosition;
-    private GameObject bus;
+    public GameObject diningExit;
+    public GameObject dishExit;
+    public GameObject diningPosition;
+    public GameObject dishwasherBusPosition;
+    public GameObject busPosition;
+    public GameObject bus;
     
     private float speed = 5;
     private float dishThrowCooldownMax = 1f;
@@ -37,17 +37,7 @@ public class DishwasherManager : MonoBehaviour
 	// Use this for initialization
 	void Start ()
 	{
-	    bus = GameObject.Find("PlateBus");
-        busPosition = GameObject.Find("BusPosition");
-
-        gameState = GameObject.FindGameObjectWithTag("GameState").GetComponent<GameState>();
-	    
-        diningExit = GameObject.FindGameObjectWithTag("DishwasherDiningExit");
-        dishExit = GameObject.FindGameObjectWithTag("DishwasherDishExit");
-        dishwasherBusPosition = GameObject.Find("DishwasherBusPosition");
-        diningPosition = GameObject.FindGameObjectWithTag("DishwasherDiningPosition");
-
-        SetState(DishwasherState.Idle);
+	    SetState(DishwasherState.Idle);
 	}
 	
 	// Update is called once per frame

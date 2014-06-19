@@ -5,10 +5,10 @@ using System.Collections;
 public class TitleManager : MonoBehaviour
 {
     // Cameras.
-    private Camera mainCamera;
-    private Camera creditsCamera;
-    private Camera tutorialCamera;
-    private Camera splashCamera;
+    public Camera mainCamera;
+    public Camera creditsCamera;
+    public Camera tutorialCamera;
+    public Camera splashCamera;
 
     private bool displayingSplash;
 
@@ -17,7 +17,7 @@ public class TitleManager : MonoBehaviour
 
     // State.
     private TitleState currentTitleState;
-    private GameState gameState;
+    public GameState gameState;
 
     // Credits screen stuff
     private float creditsExplosionCooldown = -1;
@@ -48,14 +48,6 @@ public class TitleManager : MonoBehaviour
 	// Use this for initialization
 	void Start ()
 	{
-        // Cameras.
-	    creditsCamera = GameObject.Find("CreditsCamera").GetComponent<Camera>();
-        mainCamera = GameObject.Find("Main Camera").GetComponent<Camera>();
-	    tutorialCamera = GameObject.Find("TutorialCamera").GetComponent<Camera>();
-	    splashCamera = GameObject.Find("SplashCamera").GetComponent<Camera>();
-
-	    gameState = GameObject.Find("GameState").GetComponent<GameState>();
-
 	    gameState.HideCursor();
         clicked = false;
 	

@@ -9,15 +9,15 @@ public class GameState : MonoBehaviour {
     #region Properties
 
     #region Dishwasher
-    private GameObject dishwasher;
-    private GameObject dishwasherWalking;
-    private DishwasherManager dishwasherManager;
+    public GameObject dishwasher;
+    public GameObject dishwasherWalking;
+    public DishwasherManager dishwasherManager;
     #endregion Dishwasher
 
     #region Misc. Managers
     private CursorManager cursorManager;
-    private AudioManager audioManager;
-    private TitleManager titleManager;
+    public AudioManager audioManager;
+    public TitleManager titleManager;
     #endregion
 
     #region Dish
@@ -28,23 +28,23 @@ public class GameState : MonoBehaviour {
     #endregion Dish
 
     #region Customer Positions
-    private Vector2 customerPositionSpawn1;
-    private Vector2 customerPositionSpawn2;
-    private Vector2 customerPositionMid;
-    private Vector2 customerPositionEnd;
+    public Transform customerPositionSpawn1;
+    public Transform customerPositionSpawn2;
+    public Transform customerPositionMid;
+    public Transform customerPositionEnd;
     #endregion Customer Positions
 
     #region GUI
-    private GameObject exitButton;
-    private GameObject resumeButton;
+    public GameObject exitButton;
+    public GameObject resumeButton;
     #endregion GUI
 
     #region Cameras
-    private Camera diningCamera;
-    private Camera dishCamera;
-    private Camera transitionCamera;
-    private Camera pauseCamera;
-    private Camera currentCamera;
+    public Camera diningCamera;
+    public Camera dishCamera;
+    public Camera transitionCamera;
+    public Camera pauseCamera;
+    public Camera currentCamera;
     #endregion Cameras
 
     #region Customer/Wave Info
@@ -86,9 +86,9 @@ public class GameState : MonoBehaviour {
     private RaycastHit hit;
 
     #region Transitions
-    private SpriteRenderer richTransitionSprite;
-    private SpriteRenderer livingTransitionSprite;
-    private SpriteRenderer minimumTransitionSprite;
+    public SpriteRenderer richTransitionSprite;
+    public SpriteRenderer livingTransitionSprite;
+    public SpriteRenderer minimumTransitionSprite;
     #endregion Transitions
 
     #endregion Properties
@@ -98,36 +98,7 @@ public class GameState : MonoBehaviour {
 	{	   
         // Managers
 	    cursorManager = GetComponent<CursorManager>();
-        audioManager = GameObject.Find("AudioManager").GetComponent<AudioManager>();
-	    titleManager = GameObject.Find("TitleManager").GetComponent<TitleManager>();
-
-		// Dishwasher
-	    dishwasherManager = GameObject.Find("Dishwasher").GetComponent<DishwasherManager>();
-	    dishwasher = GameObject.Find("Dishwasher");
-        dishwasherWalking = GameObject.Find("DishwasherWalking");
         
-        // Customers
-        customerPositionSpawn1 = GameObject.Find("CustomerPositionSpawn1").GetComponent<Transform>().position;
-        customerPositionSpawn2 = GameObject.Find("CustomerPositionSpawn2").GetComponent<Transform>().position;
-        customerPositionMid = GameObject.Find("CustomerPositionMid").GetComponent<Transform>().position;
-        customerPositionEnd = GameObject.Find("CustomerPositionEnd").GetComponent<Transform>().position;
-
-	    // Cameras
-        diningCamera = GameObject.Find("DiningCamera").GetComponent<Camera>();
-        dishCamera = GameObject.Find("DishCamera").GetComponent<Camera>();
-        transitionCamera = GameObject.Find("TransitionCamera").GetComponent<Camera>();
-	    pauseCamera = GameObject.Find("PauseCamera").GetComponent<Camera>();
-	    currentCamera = dishCamera;
-
-        // GUI
-	    exitButton = GameObject.Find("ExitButton");
-	    resumeButton = GameObject.Find("ResumeButton");
-
-        // Transition screens
-	    richTransitionSprite = GameObject.Find("RichTransition").GetComponent<SpriteRenderer>();
-        livingTransitionSprite = GameObject.Find("LivingTransition").GetComponent<SpriteRenderer>();
-        minimumTransitionSprite = GameObject.Find("MinimumTransition").GetComponent<SpriteRenderer>();
-
 		// Initial state
 	    SetState(State.Title);
 	    if (debug)
@@ -190,14 +161,14 @@ public class GameState : MonoBehaviour {
         if (random == 1)
         {
             // Spawn at bottom of screen. Adjust spawnpoint y by a random amount.
-            customerPositionSpawn = customerPositionSpawn1;
+            customerPositionSpawn = customerPositionSpawn1.position;
             random = Random.Range(1, 4);
             customerPositionSpawn.y -= random;
         }
         else
         {
             // Spawn at left of screen. Adjust spawnpoint x by a random amount.
-            customerPositionSpawn = customerPositionSpawn2;
+            customerPositionSpawn = customerPositionSpawn2.position;
             random = Random.Range(1, 4);
             customerPositionSpawn.x -= random;
         }
@@ -211,8 +182,8 @@ public class GameState : MonoBehaviour {
 
             CustomerManager customerManager = customerInstance.GetComponent<CustomerManager>();
             customerManager.enabled = true;
-            customerManager.SetPositionMid(customerPositionMid);
-            customerManager.SetPositionEnd(customerPositionEnd);
+            customerManager.SetPositionMid(customerPositionMid.position);
+            customerManager.SetPositionEnd(customerPositionEnd.position);
 
             // Enter state.
             customerManager.SetState(CustomerManager.CustomerStates.MoveToMid);
@@ -468,7 +439,7 @@ public class GameState : MonoBehaviour {
         cursorManager.ShowCursor();
         dishwasher.gameObject.SetActive(true);
         dishwasherWalking.gameObject.SetActive(false);
-        dishwasherManager = GameObject.Find("Dishwasher").GetComponent<DishwasherManager>();
+        dishwasherManager = GameObject.FindGameObjectWithTag("Dishwasher").GetComponent<DishwasherManager>();
         
         diningCamera.enabled = true;
         dishCamera.enabled = false;
@@ -484,7 +455,7 @@ public class GameState : MonoBehaviour {
 
         // Enable walking Dishwasher game object. Walk toward dish room.
         dishwasherWalking.gameObject.SetActive(true);
-        dishwasherManager = GameObject.Find("DishwasherWalking").GetComponent<DishwasherManager>();
+        dishwasherManager = GameObject.FindGameObjectWithTag("DishwasherWalking").GetComponent<DishwasherManager>();
         dishwasherManager.SetState(DishwasherManager.DishwasherState.MoveToBusPosition);
 
         cursorManager.HideCursor();

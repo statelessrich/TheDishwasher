@@ -3,7 +3,7 @@ using UnityEngine;
 using System.Collections;
 
 public class CustomerManager : MonoBehaviour {
-    private GameState gameState;
+    public GameState gameState;
 
     public Vector2 positionMid;
     public Vector2 positionEnd;
@@ -34,8 +34,6 @@ public class CustomerManager : MonoBehaviour {
 	// Use this for initialization
 	void Start ()
 	{
-        gameState = GameObject.FindGameObjectWithTag("GameState").GetComponent<GameState>();
-
         // Get idle animation name hash.
 	    explosionIdleState = Animator.StringToHash("Base.Idle");
 	}
